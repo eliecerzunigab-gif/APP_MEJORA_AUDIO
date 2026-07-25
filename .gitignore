@@ -1,0 +1,36 @@
+# Archivos de audio (binarios grandes)
+MP3_01/
+improved_audio/
+*.mp3
+*.wav
+*.flac
+*.ogg
+*.m4a
+*.aac
+*.wma
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Entorno virtual
+venv/
+env/
+.env
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# Sistema
+Thumbs.db
+.DS_Store
+Desktop.ini
+
+# Logs
+*.log
