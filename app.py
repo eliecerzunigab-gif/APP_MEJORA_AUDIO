@@ -1087,6 +1087,9 @@ if __name__ == '__main__':
     print("=" * 60)
     print(f"Directorios: {AUDIO_DIRS}")
     print(f"Mejoras guardadas en: {IMPROVED_DIR}")
-    print("Servidor en http://localhost:5000")
     print("=" * 60)
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # Puerto: usar variable de entorno PORT (Render/Railway) o 5000 por defecto
+    port = int(os.environ.get('PORT', 5000))
+    debug_mode = os.environ.get('FLASK_DEBUG', '').lower() == 'true'
+    print(f"Servidor en http://0.0.0.0:{port}")
+    app.run(debug=debug_mode, host='0.0.0.0', port=port)
