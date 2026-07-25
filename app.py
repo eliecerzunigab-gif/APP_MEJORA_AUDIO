@@ -1091,5 +1091,9 @@ if __name__ == '__main__':
     # Puerto: usar variable de entorno PORT (Render/Railway) o 5000 por defecto
     port = int(os.environ.get('PORT', 5000))
     debug_mode = os.environ.get('FLASK_DEBUG', '').lower() == 'true'
-    print(f"Servidor en http://0.0.0.0:{port}")
+    print(f"Servidor en http://localhost:{port}")
+    # Auto-abrir navegador solo en modo .exe (no en desarrollo con Flask reloader)
+    if not debug_mode and not os.environ.get('WERKZEUG_RUN_MAIN'):
+        import webbrowser
+        threading.Timer(1.5, lambda: webbrowser.open(f'http://localhost:{port}')).start()
     app.run(debug=debug_mode, host='0.0.0.0', port=port)
