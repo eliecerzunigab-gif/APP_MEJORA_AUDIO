@@ -376,13 +376,27 @@ def analyze_file(filepath):
 
 # ====== ROUTES ======
 
+# Directorio temporal para uploads
+UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'MP3_01')
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
 @app.route('/')
 def index():
     return render_template('index.html')
 
 @app.route('/api/scan')
 def scan():
+    # Escanear tanto MP3_01 como improved_audio (por si hay archivos subidos)
     files = find_audio_files()
+    # También buscar en uploads recientes
+    if os.path.exists(UPLOAD_DIR):
+        for root, dirs, filenames in os.walk(UPLOAD_DIR):
+            for filename in filenames:
+                ext = os.path.splitext(filename)[1].lower()
+                if ext in AUDIO_EXTENSIONS:
+                    fp = os.path.normpath(os.path.join(root, filename))
+                    if fp not in files:
+                        files.append(fp)
     results = []
     for filepath in files:
         try:
@@ -1062,6 +1076,40 @@ def download_file(filename):
     if os.path.exists(filepath):
         return send_file(filepath, as_attachment=True, download_name=filename)
     return jsonify({'error': 'Archivo no encontrado'}), 404
+
+@app.route('/api/upload', methods=['POST'])
+def upload_files():
+    """Endpoint para subir archivos de audio via drag & drop o selector."""
+    uploaded_files = request.files.getlist('files')
+    if not uploaded_files:
+        return jsonify({'error': 'No se enviaron archivos'}), 400
+    
+    saved = []
+    errors = []
+    for file in uploaded_files:
+        if file and file.filename:
+            ext = os.path.splitext(file.filename)[1].lower()
+            if ext not in AUDIO_EXTENSIONS:
+                errors.append(f'{file.filename}: formato no soportado')
+                continue
+            # Guardar en MP3_01 (directorio de uploads)
+            safe_name = os.path.basename(file.filename)
+            dest = os.path.join(UPLOAD_DIR, safe_name)
+            # Evitar sobrescritura
+            counter = 1
+            while os.path.exists(dest):
+                base, ext_f = os.path.splitext(safe_name)
+                dest = os.path.join(UPLOAD_DIR, f"{base}_{counter}{ext_f}")
+                counter += 1
+            file.save(dest)
+            saved.append(os.path.normpath(dest))
+    
+    return jsonify({
+        'uploaded': len(saved),
+        'errors': errors,
+        'files': saved,
+        'message': f'{len(saved)} archivo(s) subidos exitosamente' + (f'. {len(errors)} errores.' if errors else '')
+    })
 
 @app.route('/api/improved_files')
 def list_improved_files():

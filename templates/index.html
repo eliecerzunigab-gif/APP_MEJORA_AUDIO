@@ -837,6 +837,35 @@
             border-color: var(--danger);
         }
 
+        /* Drop Zone */
+        .drop-zone {
+            border: 3px dashed var(--border);
+            border-radius: var(--radius);
+            padding: 40px 20px;
+            text-align: center;
+            transition: var(--transition);
+            cursor: pointer;
+            margin-bottom: 24px;
+            background: var(--bg-secondary);
+        }
+        .drop-zone:hover, .drop-zone.drag-over {
+            border-color: var(--accent);
+            background: var(--bg-card-hover);
+            box-shadow: 0 0 20px rgba(108,92,231,0.15);
+        }
+        .drop-zone-inner h3 {
+            font-size: 17px;
+            color: var(--text-primary);
+            margin: 12px 0 6px;
+        }
+        .drop-zone-inner p {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+        .upload-progress {
+            margin-top: 16px;
+        }
+
         @media (max-width: 768px) {
             .header {
                 padding: 12px 16px;
@@ -898,6 +927,23 @@
     </header>
 
     <div class="container">
+        <!-- Drop Zone para upload de archivos -->
+        <div class="drop-zone" id="dropZone">
+            <div class="drop-zone-inner">
+                <span style="font-size:48px;">📂</span>
+                <h3>Arrastra y suelta archivos de audio aquí</h3>
+                <p>MP3, FLAC, WAV, OGG, M4A, AAC, WMA</p>
+                <input type="file" id="fileInput" multiple accept=".mp3,.wav,.flac,.ogg,.m4a,.aac,.wma" style="display:none" onchange="handleFileSelect(event)">
+                <button class="btn btn-sm btn-secondary" onclick="document.getElementById('fileInput').click()" style="margin-top:12px">
+                    📁 Seleccionar archivos...
+                </button>
+                <div class="upload-progress" id="uploadProgress" style="display:none">
+                    <div class="loading-progress" style="margin-top:12px;width:100%"><div class="loading-progress-bar" id="uploadBar" style="width:0%"></div></div>
+                    <span style="font-size:12px;color:var(--text-muted)" id="uploadStatus"></span>
+                </div>
+            </div>
+        </div>
+
         <div class="toolbar">
             <div class="search-box">
                 <span class="search-icon">🔍</span>
@@ -1582,6 +1628,82 @@
             } catch (e) {
                 stepsContainer.innerHTML = `<p style="color:var(--danger)">Error al cargar: ${e.message}</p>`;
             }
+        }
+
+        // ====== UPLOAD / DRAG & DROP ======
+
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const uploadProgress = document.getElementById('uploadProgress');
+        const uploadBar = document.getElementById('uploadBar');
+        const uploadStatus = document.getElementById('uploadStatus');
+
+        // Drag & Drop events
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt => {
+            dropZone.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); });
+        });
+        ['dragenter', 'dragover'].forEach(evt => {
+            dropZone.addEventListener(evt, () => dropZone.classList.add('drag-over'));
+        });
+        ['dragleave', 'drop'].forEach(evt => {
+            dropZone.addEventListener(evt, () => dropZone.classList.remove('drag-over'));
+        });
+        dropZone.addEventListener('drop', (e) => {
+            const files = e.dataTransfer.files;
+            if (files.length > 0) uploadFiles(files);
+        });
+
+        // Click to select
+        dropZone.addEventListener('click', (e) => {
+            if (e.target.tagName !== 'BUTTON') fileInput.click();
+        });
+
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            if (files.length > 0) uploadFiles(files);
+            fileInput.value = '';
+        }
+
+        async function uploadFiles(fileList) {
+            const formData = new FormData();
+            let validCount = 0;
+            for (const f of fileList) {
+                const ext = '.' + f.name.split('.').pop().toLowerCase();
+                if (['.mp3', '.wav', '.flac', '.ogg', '.m4a', '.aac', '.wma'].includes(ext)) {
+                    formData.append('files', f);
+                    validCount++;
+                }
+            }
+            if (validCount === 0) {
+                showToast('⚠️ Ningún archivo de audio válido encontrado', 'error');
+                return;
+            }
+
+            uploadProgress.style.display = 'block';
+            uploadBar.style.width = '10%';
+            uploadStatus.textContent = `Subiendo ${validCount} archivo(s)...`;
+
+            try {
+                const resp = await fetch('/api/upload', { method: 'POST', body: formData });
+                const data = await resp.json();
+                uploadBar.style.width = '100%';
+                uploadStatus.textContent = data.message;
+                if (data.uploaded > 0) {
+                    showToast(`✅ ${data.message}`, 'success');
+                    // Re-escanear para mostrar los nuevos archivos
+                    setTimeout(() => startScan(), 500);
+                }
+                if (data.errors && data.errors.length > 0) {
+                    data.errors.forEach(e => showToast('⚠️ ' + e, 'error'));
+                }
+            } catch (e) {
+                uploadStatus.textContent = 'Error al subir';
+                showToast('❌ Error de conexión al subir archivos', 'error');
+            }
+            setTimeout(() => {
+                uploadProgress.style.display = 'none';
+                uploadBar.style.width = '0%';
+            }, 2500);
         }
 
         // Init
